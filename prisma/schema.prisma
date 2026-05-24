@@ -44,6 +44,9 @@ model OrganizationProfile {
   address       String?
   website       String?
   logoUrl       String?
+  logoBytes     Bytes?
+  logoMimeType  String?
+  logoUpdatedAt DateTime?
   primaryColor  String   @default("#0f766e")
   verifyBaseUrl String?
   setupComplete Boolean  @default(false)
@@ -66,16 +69,22 @@ model Signatory {
 }
 
 model Archive {
-  id          String        @id @default(cuid())
-  number      String
-  subject     String
-  description String?
-  issuedAt    DateTime
-  status      ArchiveStatus @default(DRAFT)
-  createdById String
-  createdBy   User          @relation(fields: [createdById], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  number         String
+  subject        String
+  description    String?
+  issuedAt       DateTime
+  status         ArchiveStatus @default(DRAFT)
+  // Optional SHA-256 of the bound PDF (lowercase hex, 64 chars). Lets
+  // recipients drop the file on the verification page to confirm it has
+  // not changed byte-for-byte since the admin recorded it. Independent of
+  // the HMAC signature payload, so binding (or not binding) a hash never
+  // invalidates an existing signature.
+  documentSha256 String?
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   signatures          ArchiveSignature[]
   requiredSignatories ArchiveRequiredSignatory[]

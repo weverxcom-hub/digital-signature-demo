@@ -27,14 +27,14 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Overview</h1>
           <p className="text-sm text-slate-500">
             Quick view of your archives and signature activity.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <Link href="/dashboard/archives">
             <Button>New archive</Button>
           </Link>
@@ -58,18 +58,25 @@ export default async function OverviewPage() {
           ) : (
             <ul className="divide-y divide-slate-100">
               {audit.map((log) => (
-                <li key={log.id} className="flex items-start justify-between py-3 text-sm">
-                  <div>
-                    <div className="flex items-center gap-2">
+                <li
+                  key={log.id}
+                  className="flex flex-wrap items-start justify-between gap-2 py-3 text-sm"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={badgeForAction(log.action)}>{log.action}</Badge>
                       <span className="font-medium">{log.entityType}</span>
-                      <span className="text-xs text-slate-400">{log.entityId}</span>
+                      <span className="break-all text-xs text-slate-400">
+                        {log.entityId}
+                      </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
                       by {log.user?.name || log.user?.email || "system"}
                     </p>
                   </div>
-                  <time className="text-xs text-slate-500">{formatDateTime(log.createdAt)}</time>
+                  <time className="shrink-0 text-xs text-slate-500">
+                    {formatDateTime(log.createdAt)}
+                  </time>
                 </li>
               ))}
             </ul>

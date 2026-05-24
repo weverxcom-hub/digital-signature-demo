@@ -20,39 +20,51 @@ export async function GET(req: Request) {
   }
   const url = new URL(req.url);
   const q = url.searchParams.get("q")?.trim();
-  const archives = await prisma.archive.findMany({
-    where: q
-      ? {
-          OR: [
-            { number: { contains: q } },
-            { subject: { contains: q } },
-          ],
-        }
-      : undefined,
-    include: {
-      signatures: {
-        select: {
-          id: true,
-          token: true,
-          signedAt: true,
-          revokedAt: true,
-          signatoryId: true,
-          signatoryName: true,
-          signatoryPosition: true,
+  const rawTake = Number(url.searchParams.get("take") ?? "50");
+  const rawSkip = Number(url.searchParams.get("skip") ?? "0");
+  const take = Number.isFinite(rawTake)
+    ? Math.min(Math.max(Math.trunc(rawTake), 1), 100)
+    : 50;
+  const skip = Number.isFinite(rawSkip) ? Math.max(Math.trunc(rawSkip), 0) : 0;
+  const where = q
+    ? {
+        OR: [
+          { number: { contains: q, mode: "insensitive" as const } },
+          { subject: { contains: q, mode: "insensitive" as const } },
+        ],
+      }
+    : undefined;
+  const [items, total] = await Promise.all([
+    prisma.archive.findMany({
+      where,
+      include: {
+        signatures: {
+          select: {
+            id: true,
+            token: true,
+            signedAt: true,
+            revokedAt: true,
+            signatoryId: true,
+            signatoryName: true,
+            signatoryPosition: true,
+          },
+          orderBy: { signedAt: "desc" },
         },
-        orderBy: { signedAt: "desc" },
-      },
-      requiredSignatories: {
-        select: {
-          signatoryId: true,
-          signatory: { select: { id: true, name: true, position: true } },
+        requiredSignatories: {
+          select: {
+            signatoryId: true,
+            signatory: { select: { id: true, name: true, position: true } },
+          },
         },
+        createdBy: { select: { id: true, name: true, email: true } },
       },
-      createdBy: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json(archives);
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
+    }),
+    prisma.archive.count({ where }),
+  ]);
+  return NextResponse.json({ items, total, take, skip });
 }
 
 export async function POST(req: Request) {

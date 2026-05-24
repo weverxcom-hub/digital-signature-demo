@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySignatureHmac } from "@/lib/signature";
-import { getOrCreateOrganizationProfile } from "@/lib/profile";
+import { getOrCreateOrganizationProfile, getLogoSrc } from "@/lib/profile";
+import { rateLimitByIp } from "@/lib/rateLimit";
 
-export async function GET(_req: Request, { params }: { params: { token: string } }) {
+export async function GET(req: Request, { params }: { params: { token: string } }) {
+  const rl = await rateLimitByIp(req, "verifyApi");
+  if (rl) return rl;
+
   const sig = await prisma.archiveSignature.findUnique({
     where: { token: params.token },
     include: {
@@ -14,17 +18,21 @@ export async function GET(_req: Request, { params }: { params: { token: string }
           subject: true,
           description: true,
           issuedAt: true,
+          documentSha256: true,
         },
       },
     },
   });
 
   const profile = await getOrCreateOrganizationProfile();
+  // `logoUrl` here is whatever the consumer can render in an <img>: either
+  // the externally-hosted URL, or a same-origin /api/profile/logo path that
+  // streams the uploaded bytes.
   const organization = {
     name: profile.name,
     shortName: profile.shortName,
     tagline: profile.tagline,
-    logoUrl: profile.logoUrl,
+    logoUrl: getLogoSrc(profile),
     website: profile.website,
     primaryColor: profile.primaryColor,
   };

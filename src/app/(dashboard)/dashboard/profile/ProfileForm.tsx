@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea, FieldHint } from "@/components/ui/Input";
@@ -22,15 +23,98 @@ type Profile = {
   logoUrl: string | null;
   primaryColor: string;
   verifyBaseUrl: string | null;
+  logoMimeType?: string | null;
+  logoUpdatedAt?: string | null;
 };
 
+const MAX_LOGO_KB = 2048;
+const ACCEPTED_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+  "image/gif",
+];
+
 export function ProfileForm({ initial }: { initial: Profile }) {
+  const router = useRouter();
   const [form, setForm] = useState<Profile>(initial);
   const [saving, setSaving] = useState(false);
+  const [hasUpload, setHasUpload] = useState<boolean>(!!initial.logoMimeType);
+  const [logoVersion, setLogoVersion] = useState<number>(() =>
+    initial.logoUpdatedAt ? new Date(initial.logoUpdatedAt).getTime() : 0
+  );
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Free the object URL when the component unmounts or the preview is replaced.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   function update<K extends keyof Profile>(key: K, value: Profile[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
+
+  async function uploadLogo(file: File) {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast.error(
+        `Unsupported image type "${file.type || "unknown"}". Use PNG, JPG, WEBP, SVG, or GIF.`
+      );
+      return;
+    }
+    if (file.size > MAX_LOGO_KB * 1024) {
+      toast.error(
+        `File too large (${Math.round(file.size / 1024)}KB). Max ${MAX_LOGO_KB}KB.`
+      );
+      return;
+    }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/profile/logo", { method: "POST", body: fd });
+    setUploading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      toast.error(data?.error || "Could not upload logo");
+      return;
+    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(file));
+    setHasUpload(true);
+    setLogoVersion(Date.now());
+    toast.success("Logo uploaded");
+    // Re-fetch server components so headers / verify page pick up the new logo.
+    router.refresh();
+  }
+
+  async function removeUploadedLogo() {
+    if (!hasUpload) return;
+    setUploading(true);
+    const res = await fetch("/api/profile/logo", { method: "DELETE" });
+    setUploading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      toast.error(data?.error || "Could not remove logo");
+      return;
+    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setHasUpload(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast.success("Logo removed");
+    router.refresh();
+  }
+
+  // Resolve which logo image to show in the live preview.
+  // - Just-picked file → local object URL (immediate, no roundtrip).
+  // - Uploaded server logo → /api/profile/logo?v=<ts> (cache-busted).
+  // - External URL → as-is (best-effort, may fail on bad URLs).
+  const livePreviewSrc =
+    previewUrl ?? (hasUpload ? `/api/profile/logo?v=${logoVersion}` : form.logoUrl?.trim() || null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -131,8 +215,73 @@ export function ProfileForm({ initial }: { initial: Profile }) {
           <CardDescription>Logo and primary color.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <Label>Logo</Label>
+            <div className="flex items-center gap-4">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                {livePreviewSrc ? (
+                  // Use a plain <img> to dodge next/image's loader pipeline,
+                  // which is the source of most "logo tidak bisa terbaca"
+                  // reports (bad URLs, CORS-fronted CDNs, SVGs without an
+                  // accept header, etc.).
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={livePreviewSrc}
+                    alt="Logo preview"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-xs text-slate-400">No logo</span>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {uploading
+                      ? "Uploading…"
+                      : hasUpload
+                      ? "Replace logo file"
+                      : "Upload logo file"}
+                  </Button>
+                  {hasUpload && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={uploading}
+                      onClick={removeUploadedLogo}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_TYPES.join(",")}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void uploadLogo(f);
+                  }}
+                />
+                <FieldHint>
+                  PNG, JPG, WEBP, SVG, or GIF. Max {MAX_LOGO_KB}KB. Square
+                  aspect ratio looks best. Uploaded files are stored on this
+                  deployment — no external hosting needed.
+                </FieldHint>
+              </div>
+            </div>
+          </div>
+
           <div>
-            <Label htmlFor="logoUrl">Logo URL</Label>
+            <Label htmlFor="logoUrl">Logo URL (fallback)</Label>
             <Input
               id="logoUrl"
               type="url"
@@ -141,8 +290,9 @@ export function ProfileForm({ initial }: { initial: Profile }) {
               placeholder="https://example.com/logo.png"
             />
             <FieldHint>
-              PNG/SVG/JPG. Square aspect ratio looks best. For v1 we use a URL
-              instead of file upload — host it on your CDN or static bucket.
+              Only used if no file is uploaded above. Must be a direct image
+              URL (ending in .png/.jpg/.svg) — not a Google Drive or Dropbox
+              page link.
             </FieldHint>
           </div>
           <div className="grid grid-cols-[120px_1fr] items-end gap-4">

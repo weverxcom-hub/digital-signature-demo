@@ -52,7 +52,7 @@ export default async function AuditPage() {
                     </td>
                     <td className="px-4 py-2">
                       <span className="font-medium">{log.entityType}</span>
-                      <span className="ml-2 text-xs text-slate-400">
+                      <span className="ml-2 break-all text-xs text-slate-400">
                         {log.entityId}
                       </span>
                     </td>

@@ -52,14 +52,22 @@ type Signatory = {
 
 export function ArchivesClient({
   initialArchives,
+  initialTotal,
+  pageSize,
   signatories,
 }: {
   initialArchives: Archive[];
+  initialTotal: number;
+  pageSize: number;
   signatories: Signatory[];
 }) {
   const router = useRouter();
   const [archives, setArchives] = useState<Archive[]>(initialArchives);
+  const [total, setTotal] = useState<number>(initialTotal);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
   const [form, setForm] = useState({
     number: "",
     subject: "",
@@ -108,6 +116,7 @@ export function ArchivesClient({
       },
       ...prev,
     ]);
+    setTotal((t) => t + 1);
     setForm({
       number: "",
       subject: "",
@@ -120,19 +129,117 @@ export function ArchivesClient({
     router.refresh();
   }
 
+  // Builds the API query string from the supplied search input. Stays
+  // empty when the user hasn't typed anything so the server returns
+  // the unfiltered first page.
+  function buildQuery(skip: number, take: number, q: string) {
+    const params = new URLSearchParams();
+    params.set("skip", String(skip));
+    params.set("take", String(take));
+    if (q.trim()) params.set("q", q.trim());
+    return params.toString();
+  }
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/archives?${buildQuery(archives.length, pageSize, query)}`
+      );
+      if (!res.ok) {
+        toast.error("Could not load more archives");
+        return;
+      }
+      const data = await res.json();
+      const incoming: Archive[] = Array.isArray(data?.items) ? data.items : [];
+      setArchives((prev) => {
+        const known = new Set(prev.map((a) => a.id));
+        return [...prev, ...incoming.filter((a) => !known.has(a.id))];
+      });
+      if (typeof data?.total === "number") {
+        setTotal(data.total);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function runSearch(e?: React.FormEvent, qOverride?: string) {
+    e?.preventDefault();
+    const q = qOverride ?? query;
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/archives?${buildQuery(0, pageSize, q)}`);
+      if (!res.ok) {
+        toast.error("Could not run search");
+        return;
+      }
+      const data = await res.json();
+      const incoming: Archive[] = Array.isArray(data?.items) ? data.items : [];
+      setArchives(incoming);
+      if (typeof data?.total === "number") setTotal(data.total);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function clearSearch() {
+    if (!query) return;
+    setQuery("");
+    // Pass the empty query explicitly because state updates haven't
+    // applied yet at this point in the event handler.
+    runSearch(undefined, "");
+  }
+
+  const hasMore = archives.length < total;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Archives</h1>
           <p className="text-sm text-slate-500">
             Documents that can be signed and verified by QR.
           </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Showing {archives.length} of {total}
+          </p>
         </div>
-        <Button onClick={() => setCreating((v) => !v)}>
+        <Button
+          onClick={() => setCreating((v) => !v)}
+          className="shrink-0"
+        >
           {creating ? "Cancel" : "New archive"}
         </Button>
       </div>
+
+      <form
+        onSubmit={runSearch}
+        className="flex flex-wrap gap-2"
+        role="search"
+      >
+        <Input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by number or subject…"
+          aria-label="Search archives"
+          className="min-w-[200px] flex-1"
+        />
+        <Button type="submit" variant="outline" disabled={searching}>
+          {searching ? "Searching…" : "Search"}
+        </Button>
+        {query && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={clearSearch}
+            disabled={searching}
+          >
+            Clear
+          </Button>
+        )}
+      </form>
 
       {creating && (
         <Card>
@@ -152,7 +259,7 @@ export function ArchivesClient({
                   required
                   value={form.number}
                   onChange={(e) => setForm({ ...form, number: e.target.value })}
-                  placeholder="e.g. 001/ORG/DIR/I/2025"
+                  placeholder="e.g. 001/ACME/REK/I/2026"
                 />
               </div>
               <div>
@@ -311,6 +418,19 @@ export function ArchivesClient({
           )}
         </CardContent>
       </Card>
+
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? "Loading…" : "Load more"}
+          </Button>
+        </div>
+      )}
 
       {signatories.length === 0 && (
         <p className="text-xs text-amber-700">

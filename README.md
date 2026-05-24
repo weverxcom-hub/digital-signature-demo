@@ -36,13 +36,27 @@ organization.
   color, and verification base URL through the dashboard.
 - **Audit log** — every mutation (sign, revoke, embed, profile
   update) is recorded with actor + metadata.
+- **Rate limiting** (optional) — Upstash Redis sliding-window
+  limits on login, signing, PDF embed, logo upload, and verify
+  endpoints. Fails open if Upstash env vars are absent.
+- **Error tracking** (optional) — Sentry server + edge + client
+  SDK + global error boundary. No-op when DSN is absent.
+- **SVG-safe logo upload** — uploaded logos served with strict CSP
+  + sandbox headers; SVG payloads with scripts/event handlers/XXE
+  are rejected at upload time.
+- **Test suite** — Vitest unit tests for HMAC golden vectors,
+  archive status matrix, rate-limit semantics, and stamp glyph
+  regression guard.
 
 ## Tech stack
 
 - Next.js 14 (App Router) + TypeScript + Tailwind CSS
 - PostgreSQL (Neon is free for getting started) + Prisma 5
 - NextAuth credentials (bcryptjs)
-- `qrcode`, `sharp`, `pdf-lib`
+- `qrcode`, `sharp`, `pdf-lib`, `opentype.js`
+- `@upstash/ratelimit` + `@upstash/redis` (optional, for rate limiting)
+- `@sentry/nextjs` (optional, for error tracking)
+- `vitest` for unit tests
 - Hosting on Vercel (free tier is plenty for an institutional
   deployment)
 
@@ -69,6 +83,16 @@ organization.
    `NEXT_PUBLIC_APP_URL` to the custom domain. The `OrganizationProfile.verifyBaseUrl` field controls where QR codes
    point — set this to your **official institutional domain** for
    maximum trust (see "Trust anchor" below).
+6. (Recommended) Add production-grade observability + abuse protection:
+   - **Rate limiting** — set `UPSTASH_REDIS_REST_URL` and
+     `UPSTASH_REDIS_REST_TOKEN` (free at
+     [upstash.com](https://upstash.com)). Without these, the app
+     fails open — login, signing, and verification are unrate-limited.
+   - **Error tracking** — set `SENTRY_DSN` and `NEXT_PUBLIC_SENTRY_DSN`
+     (free at [sentry.io](https://sentry.io)). Without these, the
+     Sentry SDK is a no-op.
+
+See `.env.example` for the full list of supported variables.
 
 ## Local development
 

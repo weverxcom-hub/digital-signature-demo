@@ -12,7 +12,7 @@ import { getOrCreateOrganizationProfile } from "@/lib/profile";
 export const dynamic = "force-dynamic";
 
 const PANDUAN_URL =
-  "https://github.com/weverxcom-hub/digital-signature-demo/blob/main/docs/PANDUAN.md";
+  "https://github.com/weverxcom-hub/digital-signature/blob/main/docs/PANDUAN.md";
 
 export default async function HelpPage() {
   const profile = await getOrCreateOrganizationProfile();
@@ -37,6 +37,43 @@ export default async function HelpPage() {
           Buka panduan lengkap di GitHub →
         </a>
       </div>
+
+      <Card className="border-amber-200 bg-amber-50">
+        <CardHeader>
+          <CardTitle className="text-amber-900">
+            Status hukum: TTE Tidak Tersertifikasi
+          </CardTitle>
+          <CardDescription className="text-amber-900/80">
+            Pahami batasan legal sebelum mulai memakai sistem ini.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-amber-900">
+          <p>
+            Sistem ini menerapkan{" "}
+            <strong>Tanda Tangan Elektronik Tidak Tersertifikasi</strong> sesuai
+            UU ITE No. 11/2008 jo. UU No. 19/2016 dan PP PSTE No. 71/2019.
+          </p>
+          <p>
+            Ini <strong>bukan</strong> TTE Tersertifikasi yang dikeluarkan PSrE
+            terdaftar Kominfo (BSrE, Privy, Vida, PERURI CA, Digisign). Tidak
+            ada sertifikat X.509 dari otoritas terdaftar — verifikasi
+            mengandalkan integritas server {profile.name} dan domain resmi.
+          </p>
+          <p>
+            Cocok untuk surat administratif internal. <strong>Jangan</strong>{" "}
+            dipakai untuk dokumen yang membutuhkan kekuatan hukum tertinggi
+            (akta notaris, dokumen perbankan formal). Untuk itu, gunakan TTE
+            Tersertifikasi melalui PSrE resmi.
+          </p>
+          <p>
+            Detail lengkap status hukum lihat halaman{" "}
+            <Link className="underline hover:text-amber-950" href="/about">
+              About
+            </Link>
+            .
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

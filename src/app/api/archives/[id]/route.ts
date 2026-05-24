@@ -86,9 +86,26 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   if (!session?.user || !isAdmin(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const existing = await prisma.archive.findUnique({ where: { id: params.id } });
+  const existing = await prisma.archive.findUnique({
+    where: { id: params.id },
+    include: { signatures: { select: { id: true } } },
+  });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  // Refuse to delete archives that have ever been signed. Even revoked
+  // signatures are kept because their tokens may have been printed on
+  // physical documents and need to keep resolving to /verify with a
+  // truthful "revoked" status. Schema-level `onDelete: Cascade` would
+  // silently destroy those records — block at the API layer instead.
+  if (existing.signatures.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Cannot delete an archive that has signatures. Revoke them if needed; the archive itself stays for verification history.",
+      },
+      { status: 409 }
+    );
   }
   await prisma.archive.delete({ where: { id: params.id } });
   await logAudit({

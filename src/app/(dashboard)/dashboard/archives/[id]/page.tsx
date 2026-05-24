@@ -50,6 +50,10 @@ export default async function ArchiveDetailPage({
         name: profile.name,
         shortName: profile.shortName,
         logoUrl: profile.logoUrl,
+        logoMimeType: profile.logoMimeType,
+        logoUpdatedAt: profile.logoUpdatedAt
+          ? profile.logoUpdatedAt.toISOString()
+          : null,
         primaryColor: profile.primaryColor,
       }}
     />

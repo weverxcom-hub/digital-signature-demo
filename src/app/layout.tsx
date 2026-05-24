@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import { AppFooter } from "@/components/AppFooter";
 import { getOrCreateOrganizationProfile } from "@/lib/profile";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -42,7 +43,10 @@ export default async function RootLayout({
         className={`${inter.variable} font-sans bg-slate-50 text-slate-900 antialiased`}
         style={{ ["--brand" as string]: primaryColor }}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <AppFooter />
+        </Providers>
       </body>
     </html>
   );

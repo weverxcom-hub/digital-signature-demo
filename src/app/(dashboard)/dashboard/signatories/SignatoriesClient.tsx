@@ -102,14 +102,16 @@ export function SignatoriesClient({ initial }: { initial: Signatory[] }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Signatories</h1>
           <p className="text-sm text-slate-500">
             People who can be selected as a signer when an admin signs an archive.
           </p>
         </div>
-        <Button onClick={openCreate}>Add signatory</Button>
+        <Button onClick={openCreate} className="shrink-0">
+          Add signatory
+        </Button>
       </div>
 
       {editing && (
@@ -211,8 +213,8 @@ export function SignatoriesClient({ initial }: { initial: Signatory[] }) {
                   key={s.id}
                   className="flex flex-wrap items-center justify-between gap-3 p-4"
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">{s.name}</p>
                       {s.active ? (
                         <Badge variant="success">active</Badge>
@@ -221,11 +223,15 @@ export function SignatoriesClient({ initial }: { initial: Signatory[] }) {
                       )}
                     </div>
                     <p className="text-sm text-slate-600">{s.position}</p>
-                    <p className="text-xs text-slate-500">
-                      {[s.unit, s.nip && `NIP ${s.nip}`].filter(Boolean).join(" · ")}
-                    </p>
+                    {(s.unit || s.nip) && (
+                      <p className="text-xs text-slate-500">
+                        {[s.unit, s.nip && `NIP ${s.nip}`]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-2">
                     <Button variant="outline" size="sm" onClick={() => openEdit(s)}>
                       Edit
                     </Button>

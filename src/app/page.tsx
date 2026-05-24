@@ -1,8 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getOrCreateOrganizationProfile } from "@/lib/profile";
+import { LogoMark } from "@/components/LogoMark";
 import { Button } from "@/components/ui/Button";
 
 export default async function HomePage() {
@@ -20,23 +20,14 @@ export default async function HomePage() {
           background: `linear-gradient(135deg, ${profile.primaryColor}, #0b1220)`,
         }}
       >
-        <div className="mx-auto max-w-5xl px-6 py-20">
+        <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-20">
           <div className="flex items-center gap-4">
-            {profile.logoUrl ? (
-              <Image
-                src={profile.logoUrl}
-                alt={profile.name}
-                width={56}
-                height={56}
-                className="h-14 w-14 rounded bg-white p-1 object-contain"
-                unoptimized
-              />
-            ) : (
-              <div className="flex h-14 w-14 items-center justify-center rounded bg-white/15 text-lg font-bold">
-                {profile.shortName?.slice(0, 2).toUpperCase() ||
-                  profile.name.slice(0, 2).toUpperCase()}
-              </div>
-            )}
+            <LogoMark
+              profile={profile}
+              size={56}
+              className="bg-white p-1"
+              fallbackBg="rgba(255,255,255,0.15)"
+            />
             <div>
               <p className="text-sm uppercase tracking-wide opacity-80">
                 {profile.shortName || "Digital Signature"}
@@ -45,7 +36,7 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <h2 className="mt-12 max-w-2xl text-4xl font-bold leading-tight text-balance">
+          <h2 className="mt-10 max-w-2xl text-balance text-3xl font-bold leading-tight sm:mt-12 sm:text-4xl">
             Sign your documents digitally,{" "}
             <span className="opacity-80">verify them publicly.</span>
           </h2>
@@ -73,7 +64,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="mx-auto max-w-5xl px-6 py-16">
+      <section
+        id="how-it-works"
+        className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16"
+      >
         <h3 className="text-2xl font-semibold">How verification works</h3>
         <div className="mt-8 grid gap-6 md:grid-cols-3">
           <Step

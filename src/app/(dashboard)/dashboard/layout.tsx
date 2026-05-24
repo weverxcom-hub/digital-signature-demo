@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import Image from "next/image";
-import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { getOrCreateOrganizationProfile } from "@/lib/profile";
+import { LogoMark } from "@/components/LogoMark";
 import { SignOutButton } from "./SignOutButton";
+import { DashboardNav } from "./DashboardNav";
 
 export default async function DashboardLayout({
   children,
@@ -25,54 +25,34 @@ export default async function DashboardLayout({
   ];
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-3">
-            {profile.logoUrl ? (
-              <Image
-                src={profile.logoUrl}
-                alt={profile.name}
-                width={36}
-                height={36}
-                className="h-9 w-9 rounded object-contain"
-                unoptimized
-              />
-            ) : (
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded text-sm font-semibold text-white"
-                style={{ backgroundColor: "var(--brand)" }}
-              >
-                {(profile.shortName?.slice(0, 2) || profile.name.slice(0, 2)).toUpperCase()}
-              </div>
-            )}
-            <div className="leading-tight">
-              <p className="text-sm font-semibold">{profile.name}</p>
+    <div className="flex min-h-screen flex-col bg-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <LogoMark profile={profile} size={36} rounded="md" />
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-sm font-semibold">{profile.name}</p>
               <p className="text-xs text-slate-500">Digital Signature</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden text-slate-600 sm:inline">
+          <div className="flex shrink-0 items-center gap-3 text-sm">
+            <span className="hidden max-w-[180px] truncate text-slate-600 md:inline">
               {session.user.name || session.user.email}
             </span>
             <SignOutButton />
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-2 pt-1 text-sm">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded px-3 py-1.5 text-slate-700 hover:bg-slate-100"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <DashboardNav items={nav} />
+        </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">{children}</main>
-      <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        Signed in as {session.user.email} · role: {session.user.role}
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">
+        {children}
+      </main>
+      <footer className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-500 sm:px-6">
+        Signed in as{" "}
+        <span className="break-all">{session.user.email}</span> · role:{" "}
+        {session.user.role}
       </footer>
     </div>
   );

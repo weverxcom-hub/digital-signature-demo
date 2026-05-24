@@ -8,8 +8,11 @@ export type AuditAction =
   | "SIGN"
   | "SIGN_REVOKE"
   | "EMBED_PDF"
+  | "BIND_DOCUMENT"
   | "LOGIN"
   | "PROFILE_UPDATE"
+  | "PROFILE_LOGO_UPLOAD"
+  | "PROFILE_LOGO_REMOVE"
   | "USER_CREATE";
 
 export async function logAudit(params: {

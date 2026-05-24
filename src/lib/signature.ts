@@ -3,14 +3,15 @@ import { createHmac, randomBytes } from "crypto";
 /**
  * Returns the secret used to HMAC-sign attestation tokens.
  *
- * Falls back to NEXTAUTH_SECRET so deployments don't need an extra env var
- * to be set, but operators can rotate the signature secret independently.
+ * Must be set independently from NEXTAUTH_SECRET. Rotating NEXTAUTH_SECRET
+ * only logs users out; rotating SIGNATURE_SECRET invalidates every existing
+ * signature's HMAC, so they should be kept separate.
  */
 function getSignatureSecret(): string {
-  const secret = process.env.SIGNATURE_SECRET || process.env.NEXTAUTH_SECRET;
+  const secret = process.env.SIGNATURE_SECRET;
   if (!secret) {
     throw new Error(
-      "SIGNATURE_SECRET (or NEXTAUTH_SECRET as fallback) must be set for signature integrity."
+      "SIGNATURE_SECRET must be set (independent from NEXTAUTH_SECRET) to guarantee signature integrity. Generate with: openssl rand -base64 32"
     );
   }
   return secret;

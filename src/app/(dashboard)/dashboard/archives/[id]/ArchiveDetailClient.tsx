@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { LogoMark } from "@/components/LogoMark";
 import { Button } from "@/components/ui/Button";
 import { Input, Label, Textarea } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
@@ -49,6 +49,7 @@ type Archive = {
   description: string | null;
   issuedAt: string;
   status: ArchiveStatus;
+  documentSha256: string | null;
   createdBy: { id: string; name: string; email: string };
   signatures: Signature[];
   requiredSignatories: RequiredSignatory[];
@@ -60,6 +61,8 @@ type Profile = {
   name: string;
   shortName: string | null;
   logoUrl: string | null;
+  logoMimeType: string | null;
+  logoUpdatedAt: string | null;
   primaryColor: string;
 };
 
@@ -100,6 +103,16 @@ export function ArchiveDetailClient({
     "top-left" | "top-right" | "bottom-left" | "bottom-right"
   >("bottom-right");
   const [embedBusy, setEmbedBusy] = useState(false);
+
+  // PDF hash binding (optional). Admin uploads a PDF, the browser computes
+  // SHA-256 client-side and the server stores only the hex digest. This is
+  // advisory — the HMAC signature is independent of it.
+  const [boundSha256, setBoundSha256] = useState<string | null>(
+    archive.documentSha256
+  );
+  const [bindComputedHash, setBindComputedHash] = useState<string | null>(null);
+  const [bindBusy, setBindBusy] = useState(false);
+  const [bindHashing, setBindHashing] = useState(false);
 
   const sortedSignatures = useMemo(
     () =>
@@ -191,6 +204,58 @@ export function ArchiveDetailClient({
     }
     toast.success("Signature revoked");
     router.refresh();
+  }
+
+  async function onBindFileChange(file: File | null) {
+    setBindComputedHash(null);
+    if (!file) return;
+    setBindHashing(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      const digest = await crypto.subtle.digest("SHA-256", buffer);
+      const hex = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      setBindComputedHash(hex);
+    } catch {
+      toast.error("Could not compute SHA-256 in this browser");
+    } finally {
+      setBindHashing(false);
+    }
+  }
+
+  async function saveBoundHash() {
+    if (!bindComputedHash) {
+      toast.error("Pick a PDF file first to compute its hash");
+      return;
+    }
+    setBindBusy(true);
+    const res = await fetch(`/api/archives/${archive.id}/document-hash`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sha256: bindComputedHash }),
+    });
+    setBindBusy(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      toast.error(data?.error || "Could not save document hash");
+      return;
+    }
+    const data = await res.json();
+    setBoundSha256(data?.documentSha256 ?? bindComputedHash);
+    setBindComputedHash(null);
+    toast.success("Document hash saved");
+    router.refresh();
+  }
+
+  async function copyBoundHash() {
+    if (!boundSha256) return;
+    try {
+      await navigator.clipboard.writeText(boundSha256);
+      toast.success("Hash copied to clipboard");
+    } catch {
+      toast.error("Clipboard not available");
+    }
   }
 
   async function embedPdf() {
@@ -387,6 +452,82 @@ export function ArchiveDetailClient({
                     )}
                   </Field>
                 </dl>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Bind PDF (opsional)</CardTitle>
+              <CardDescription>
+                Catat SHA-256 file PDF di sistem agar penerima bisa
+                memverifikasi bahwa PDF yang mereka pegang identik byte-for-byte
+                dengan yang admin daftarkan. Bersifat optional &amp; advisory —
+                tidak meng-invalidate signature.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {boundSha256 ? (
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-500">
+                    Bound SHA-256
+                  </Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <code className="break-all rounded bg-slate-100 px-2 py-1 font-mono text-xs">
+                      {boundSha256}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={copyBoundHash}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Penerima bisa drop PDF di halaman verifikasi untuk
+                    mengonfirmasi belum berubah. Hash tidak bisa diubah lagi
+                    — buat archive baru untuk dokumen lain.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="bindPdf">PDF document</Label>
+                    <Input
+                      id="bindPdf"
+                      type="file"
+                      accept="application/pdf"
+                      onChange={(e) =>
+                        onBindFileChange(e.target.files?.[0] ?? null)
+                      }
+                    />
+                  </div>
+                  {bindHashing && (
+                    <p className="text-xs text-slate-500">Computing hash…</p>
+                  )}
+                  {bindComputedHash && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-slate-500">
+                        Computed SHA-256
+                      </Label>
+                      <code className="block break-all rounded bg-slate-100 px-2 py-1 font-mono text-xs">
+                        {bindComputedHash}
+                      </code>
+                    </div>
+                  )}
+                  <Button
+                    onClick={saveBoundHash}
+                    disabled={!bindComputedHash || bindBusy}
+                  >
+                    {bindBusy ? "Saving…" : "Compute & save hash"}
+                  </Button>
+                  <p className="text-xs text-slate-500">
+                    File tidak diupload ke server — hanya 64-char hex digest
+                    yang disimpan.
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -760,7 +901,7 @@ export function ArchiveDetailClient({
             </Card>
           )}
 
-          {profile.logoUrl && (
+          {(profile.logoUrl || profile.logoMimeType) && (
             <Card>
               <CardHeader>
                 <CardTitle>Branding preview</CardTitle>
@@ -769,14 +910,7 @@ export function ArchiveDetailClient({
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex items-center gap-3">
-                <Image
-                  src={profile.logoUrl}
-                  alt={profile.name}
-                  width={48}
-                  height={48}
-                  className="h-12 w-12 rounded object-contain"
-                  unoptimized
-                />
+                <LogoMark profile={profile} size={48} />
                 <div>
                   <p className="font-medium">{profile.name}</p>
                   <p className="text-xs text-slate-500">
