@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole @default(USER)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  archivesCreated   Archive[]
+  signaturesIssued  ArchiveSignature[] @relation("SignedBy")
+  signaturesRevoked ArchiveSignature[] @relation("RevokedBy")
+  auditLogs         AuditLog[]
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+enum ArchiveStatus {
+  DRAFT
+  PENDING
+  FULLY_SIGNED
+  REVOKED
+}
+
+model OrganizationProfile {
+  id            String   @id @default("default")
+  name          String   @default("Organization Name")
+  shortName     String?
+  tagline       String?
+  address       String?
+  website       String?
+  logoUrl       String?
+  logoBytes     Bytes?
+  logoMimeType  String?
+  logoUpdatedAt DateTime?
+  primaryColor  String   @default("#0f766e")
+  verifyBaseUrl String?
+  setupComplete Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+}
+
+model Signatory {
+  id         String   @id @default(cuid())
+  name       String
+  position   String
+  unit       String?
+  nip        String?
+  active     Boolean  @default(true)
+  deletedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  signatures        ArchiveSignature[]
+  requiredFor       ArchiveRequiredSignatory[]
+}
+
+model Archive {
+  id             String        @id @default(cuid())
+  number         String
+  subject        String
+  description    String?
+  issuedAt       DateTime
+  status         ArchiveStatus @default(DRAFT)
+  // Optional SHA-256 of the bound PDF (lowercase hex, 64 chars). Lets
+  // recipients drop the file on the verification page to confirm it has
+  // not changed byte-for-byte since the admin recorded it. Independent of
+  // the HMAC signature payload, so binding (or not binding) a hash never
+  // invalidates an existing signature.
+  documentSha256 String?
+  createdById    String
+  createdBy      User          @relation(fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  signatures          ArchiveSignature[]
+  requiredSignatories ArchiveRequiredSignatory[]
+
+  @@index([status])
+}
+
+model ArchiveRequiredSignatory {
+  id          String    @id @default(cuid())
+  archiveId   String
+  archive     Archive   @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+  signatoryId String
+  signatory   Signatory @relation(fields: [signatoryId], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@unique([archiveId, signatoryId])
+  @@index([archiveId])
+  @@index([signatoryId])
+}
+
+model ArchiveSignature {
+  id                String   @id @default(cuid())
+  archiveId         String
+  archive           Archive  @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+  signatoryId       String
+  signatory         Signatory @relation(fields: [signatoryId], references: [id])
+  signatoryName     String
+  signatoryPosition String
+  signatoryUnit     String?
+  token             String   @unique
+  hmac              String
+  signedById        String
+  signedBy          User     @relation("SignedBy", fields: [signedById], references: [id])
+  signedAt          DateTime @default(now())
+  revokedAt         DateTime?
+  revokedReason     String?
+  revokedById       String?
+  revokedBy         User?    @relation("RevokedBy", fields: [revokedById], references: [id])
+
+  @@index([archiveId])
+  @@index([archiveId, revokedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
