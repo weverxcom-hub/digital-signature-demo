@@ -45,18 +45,19 @@ const nextConfig = {
         value: "max-age=31536000; includeSubDomains",
       },
     ];
+    // Next.js applies rules in array order; when multiple sources match
+    // the same path, the LAST matching rule wins for any given header
+    // key. So order: general first, specific second — specific overrides.
     return [
-      // /verify/* is the trust anchor — never let it be framed.
+      // Everything (baseline). Routes below override headers as needed.
       {
-        source: "/verify/:path*",
+        source: "/:path*",
         headers: [
           ...baseline,
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
         ],
       },
-      // The dashboard is an internal admin tool; keep it out of search
-      // engines and out of frames on third-party sites.
+      // Dashboard: admin tool — keep out of search engines.
       {
         source: "/dashboard/:path*",
         headers: [
@@ -65,12 +66,14 @@ const nextConfig = {
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
         ],
       },
-      // Everything else (public landing, /about, /login, /api/*).
+      // /verify/* is the trust anchor — never let it be framed.
+      // Must come AFTER the general rule so X-Frame-Options: DENY wins.
       {
-        source: "/:path*",
+        source: "/verify/:path*",
         headers: [
           ...baseline,
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
         ],
       },
     ];
