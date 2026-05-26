@@ -151,7 +151,6 @@ The default branding is "Acme Foundation" / "ACME" / `your-org.example.com`. To 
 
 - [ ] **Add this repo to the Devin GitHub App installation** (https://github.com/settings/installations → Devin AI → Configure) so future automated updates can `git push` normally. Currently the workaround is GitHub Git Data API.
 - [ ] **Deploy a public demo instance** linked from the README so prospective adopters can see a working version before forking.
-- [ ] **Move `docs/ci-workflow-sample.yml` → `.github/workflows/test.yml`** via GitHub UI (PAT used by Devin lacks `workflow` scope) to enable CI on PRs.
 
 ### For adopters (i.e. forks)
 
