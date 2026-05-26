@@ -1,0 +1,43 @@
+# Runs unit tests + lint + typecheck on every push and PR.
+#
+# Vercel handles the production build (with DATABASE_URL secrets) on the
+# preview deployment; we don't run `next build` here because it requires
+# the database client and slows the loop down. The unit tests cover the
+# integrity-critical pure functions (HMAC, status derivation, rate-limit
+# helpers, stamp font geometry).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: lint + typecheck + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        # postinstall already runs prisma generate, but be explicit so a
+        # ci-time regression in postinstall doesn't silently break type
+        # imports from @prisma/client.
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
